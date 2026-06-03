@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="manifest" id="pwa-manifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#121212">
+<title>拼途账单</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#DFE1E1;--card:#fff;--ink:#121212;--accent:#D2F24A;
+  --muted:#71717A;--sec:#52525B;--border:#121212;
+  --mono:'JetBrains Mono',monospace;--sans:'Plus Jakarta Sans',sans-serif;
+  --sh:3px 3px 0 #121212;--sh2:2px 2px 0 #121212;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{height:100%;background:var(--bg);color:var(--ink);font-family:var(--sans);overscroll-behavior:none}
+input,textarea,button,select{font-family:var(--sans)}
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
+input[type=number]{-moz-appearance:textfield}
+button{cursor:pointer}
+
+/* App shell */
+#app{display:flex;flex-direction:column;height:100svh;overflow:hidden}
+.screen{display:none;flex-direction:column;height:100%;overflow:hidden}
+.screen.on{display:flex}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+
+/* Topbar */
+.topbar{
+  background:var(--ink);border-bottom:2px solid var(--border);
+  padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.brand{background:var(--accent);color:var(--ink);font-family:var(--mono);font-size:10px;font-weight:800;letter-spacing:.08em;padding:2px 7px}
+.topbar-r{font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;letter-spacing:.1em}
+
+/* Subnav */
+.subnav{
+  background:var(--bg);border-bottom:2px solid var(--border);
+  padding:10px 14px;display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.code-pill{background:var(--ink);color:var(--accent);font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.08em;padding:3px 8px}
+
+/* Buttons */
+.btn{border:2px solid var(--border);font-family:var(--mono);font-weight:800;font-size:11px;letter-spacing:.04em;display:inline-flex;align-items:center;gap:5px;padding:8px 14px;transition:transform .07s,box-shadow .07s;background:var(--card);color:var(--ink);box-shadow:var(--sh2)}
+.btn:active{transform:translate(2px,2px);box-shadow:none!important}
+.btn-accent{background:var(--accent);color:var(--ink)}
+.btn-dark{background:var(--ink);color:#fff}
+.btn-sm{padding:6px 11px;font-size:10px}
+.btn-ghost{box-shadow:var(--sh2)}
+
+/* Inner page padding */
+.pad{padding:12px}
+.gap{display:flex;flex-direction:column;gap:12px}
+
+/* Cards */
+.card{background:var(--card);border:2px solid var(--border);box-shadow:var(--sh)}
+.card-inset{background:var(--card);border:2px solid var(--border)}
+
+/* Trip card */
+.trip-card{background:var(--card);border:2px solid var(--border);box-shadow:var(--sh);overflow:hidden;cursor:pointer;-webkit-user-select:none;user-select:none}
+.trip-card:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--border)}
+.tc-top{padding:6px 12px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.tc-badge{font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.08em;padding:2px 6px}
+.tc-status{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.08em}
+.pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.tc-body{padding:11px 12px;display:flex;flex-direction:column;gap:8px}
+.tc-name{font-size:1.05rem;font-weight:800;letter-spacing:-.01em;line-height:1.2}
+.tc-amount{font-family:var(--mono);font-size:1.3rem;font-weight:900;letter-spacing:-.02em;line-height:1}
+.tc-foot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-top:1px dashed #e4e4e7;padding-top:10px}
+.mpill{font-size:10px;font-weight:600;padding:2px 6px;border-radius:2px}
+.tc-bar{height:12px;padding:0 10px;display:flex;align-items:center;justify-content:space-between}
+.bars{display:flex;gap:2px;height:100%;padding:2px 0}
+.bars span{display:block}
+
+/* Guide */
+.guide{background:var(--ink);border:2px solid var(--border);box-shadow:var(--sh);padding:14px;margin-top:auto}
+
+/* Stat ticket */
+.ticket{background:var(--card);border:2px solid var(--border);box-shadow:var(--sh);overflow:hidden;position:relative}
+.ticket-body{padding:14px}
+.stat-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:2px}
+.stat-val{font-family:var(--mono);font-size:1.4rem;font-weight:900}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:2px dashed var(--border);padding-top:12px;margin-top:10px}
+.wm{position:absolute;right:10px;top:10px;opacity:.06;width:52px;height:52px}
+
+/* Row labels */
+.row-lbl{font-family:var(--mono);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--ink)}
+
+/* Expense row */
+.exp-row{background:var(--card);border:2px solid var(--border);display:flex;overflow:hidden}
+.exp-stripe{width:10px;border-right:2px solid var(--border);flex-shrink:0}
+.exp-body{padding:11px 13px;flex:1;display:flex;flex-direction:column;gap:7px}
+.exp-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.exp-tags{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.cat-tag{font-family:var(--mono);font-size:8px;font-weight:700;border:1px solid var(--border);padding:1px 4px;color:var(--muted)}
+.exp-date{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.exp-desc{font-size:13px;font-weight:700}
+.exp-amt{font-family:var(--mono);font-size:13px;font-weight:900}
+.exp-payer{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px;text-align:right}
+.exp-foot{border-top:1px dashed #e5e7eb;padding-top:7px;display:flex;align-items:center;justify-content:space-between}
+.share-list{display:flex;align-items:center;gap:4px;flex-wrap:wrap;flex:1;overflow:hidden}
+.sh-lbl{font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+.sh-tag{font-size:9px;font-weight:600;padding:1px 5px;border:1px solid #e4e4e7;background:#f4f4f5;color:var(--sec)}
+.del-btn{background:none;border:none;color:#d1d5db;padding:2px;flex-shrink:0;font-size:16px;line-height:1;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center}
+.del-btn:active{color:#DC2626}
+
+/* Settle bar */
+.settle-bar{background:var(--ink);border:2px solid var(--border);box-shadow:var(--sh);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.sb-lbl{font-family:var(--mono);font-size:8px;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+.sb-txt{color:#fff;font-size:11px;font-weight:700;margin-top:2px}
+
+/* Empty */
+.empty{border:2px solid var(--border);padding:28px;text-align:center;background:var(--card)}
+.empty-t{font-family:var(--mono);font-size:10px;font-weight:900;letter-spacing:.1em;color:var(--muted);margin-top:8px}
+.empty-s{font-size:12px;color:var(--sec);margin-top:6px}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;z-index:50;background:rgba(18,18,18,.72);align-items:flex-end;justify-content:center;padding:0}
+.modal-bg.on{display:flex}
+.modal{background:var(--card);border:2px solid var(--border);border-bottom:none;width:100%;max-height:92svh;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:up .22s cubic-bezier(.34,1.56,.64,1)}
+@keyframes up{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-top{background:var(--ink);border-bottom:2px solid var(--border);padding:14px 14px 12px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:5}
+.modal-lbl{font-family:var(--mono);font-size:9px;font-weight:800;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.modal-title{font-family:var(--mono);font-size:13px;font-weight:900;color:#fff;margin-top:1px}
+.close{background:none;border:none;color:var(--accent);font-size:22px;line-height:1;padding:4px;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center}
+.modal-body{padding:16px;display:flex;flex-direction:column;gap:14px}
+
+/* Form */
+.flbl{font-family:var(--mono);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.05em;color:var(--ink);display:block;margin-bottom:5px}
+.finput{width:100%;border:2px solid var(--border);padding:11px 10px;font-size:15px;font-weight:600;background:var(--bg);outline:none;border-radius:0;-webkit-appearance:none;appearance:none}
+.finput:focus{background:#fff;box-shadow:var(--sh2)}
+.mono-in{font-family:var(--mono)}
+.amt-wrap{position:relative}
+.amt-pfx{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:18px;font-weight:900;color:var(--ink)}
+.amt-wrap .finput{padding-left:26px}
+textarea.finput{resize:none}
+
+/* Cat grid */
+.cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px}
+.cat-btn{border:2px solid var(--border);padding:7px 3px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;background:#f4f4f5;-webkit-user-select:none;user-select:none;min-height:44px;justify-content:center}
+.cat-btn.sel{background:var(--accent)}
+.cat-code{font-family:var(--mono);font-size:9px;font-weight:800;color:var(--ink)}
+.cat-label{font-family:var(--mono);font-size:8px;font-weight:600;color:var(--ink)}
+
+/* Payer */
+.payer-wrap{display:flex;flex-wrap:wrap;gap:7px}
+.payer-btn{border:2px solid var(--border);padding:7px 14px;font-size:13px;font-weight:700;background:#f4f4f5;min-height:40px;-webkit-user-select:none;user-select:none}
+.payer-btn.sel{background:var(--ink);color:#fff}
+
+/* Split grid */
+.split-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.split-btn{border:2px solid var(--border);padding:11px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:#f9f9f9;min-height:44px;-webkit-user-select:none;user-select:none}
+.split-btn.sel{background:#f0fce0;border-color:var(--ink)}
+.split-btn span{font-size:13px;font-weight:700;color:var(--ink)}
+.split-check{width:16px;height:16px;flex-shrink:0}
+
+/* Actions row */
+.modal-actions{border-top:1px dashed var(--border);padding-top:14px;margin-top:2px;display:flex;align-items:center;justify-content:flex-end;gap:10px}
+.err-box{border:2px solid #EF4444;background:#fef2f2;color:#EF4444;padding:8px 12px;font-size:13px;font-weight:700}
+
+/* Settlement */
+.settle-doc{background:var(--card);border:2px solid var(--border);box-shadow:var(--sh);overflow:hidden}
+.sd-head{background:var(--ink);padding:14px;display:flex;justify-content:space-between;align-items:center}
+.sd-lbl{font-family:var(--mono);font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.sd-title{font-family:var(--mono);font-size:12px;font-weight:900;color:#fff;margin-top:1px}
+.calc-badge{background:#10B981;color:var(--ink);font-family:var(--mono);font-size:9px;font-weight:800;padding:2px 7px}
+.tear{height:14px;border-bottom:2px dashed var(--border);background:#f4f4f5}
+.sd-body{padding:16px;display:flex;flex-direction:column;gap:14px}
+.stat-box{border:2px solid var(--border);padding:12px;background:#f4f4f5;display:flex;flex-direction:column;gap:5px}
+.stat-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px}
+.stat-k{color:var(--sec)}
+.stat-v{font-weight:800;color:var(--ink)}
+
+/* Tx row */
+.tx-row{border:2px solid var(--border);padding:11px;background:#f9f9f9;display:flex;align-items:center;justify-content:space-between;position:relative;margin-bottom:8px}
+.tx-idx{position:absolute;left:-6px;top:50%;transform:translateY(-50%);width:20px;height:20px;background:var(--ink);color:var(--accent);border:1px solid var(--border);font-family:var(--mono);font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.tx-from{background:#fff;border:1px solid var(--border);font-size:12px;font-weight:700;padding:2px 7px}
+.tx-arr{display:flex;flex-direction:column;align-items:center;margin:0 5px}
+.tx-arr-lbl{font-family:var(--mono);font-size:7px;color:var(--muted);line-height:1;margin-bottom:3px}
+.tx-to{background:var(--accent);border:1px solid var(--border);font-size:12px;font-weight:900;padding:2px 7px}
+.tx-amt{font-family:var(--mono);font-size:13px;font-weight:900}
+.all-clear{border:2px solid var(--border);padding:14px;background:#f0fce0;text-align:center}
+.ac-txt{font-family:var(--mono);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#059669}
+
+/* Balance table */
+.bal-table{border:2px solid var(--border);overflow:hidden}
+.bal-head{padding:11px 12px;background:var(--ink);border-bottom:2px solid var(--border)}
+.bal-head-txt{font-family:var(--mono);font-size:9px;font-weight:900;text-transform:uppercase;color:#fff;letter-spacing:.08em}
+.bal-row{display:flex;align-items:center;justify-content:space-between;padding:11px 12px;border-bottom:1px solid #e4e4e7;background:var(--card)}
+.bal-row:last-child{border-bottom:none}
+.bal-av{width:24px;height:24px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:10px;font-weight:900}
+.bal-name{font-size:13px;font-weight:700;margin-left:8px}
+.bal-amt{font-family:var(--mono);font-size:12px;font-weight:900;text-align:right}
+.bal-sub{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:1px}
+
+/* Barcode deco */
+.bc-wrap{border-top:2px dashed var(--border);margin-top:14px;padding-top:14px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.bc-bars{display:flex;gap:2px;height:28px;background:#fff;border:1px solid var(--border);padding:2px 8px;align-items:stretch}
+.bc-bars span{display:block;background:#000}
+
+/* Share btn */
+.share-btn{width:100%;border:2px solid var(--border);background:var(--accent);color:var(--ink);font-family:var(--mono);font-weight:900;font-size:13px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:var(--sh)}
+.share-btn:active{transform:translate(2px,2px);box-shadow:none}
+
+/* Hint */
+.per-hint{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:5px}
+
+/* Settled */
+.settled .tc-name{text-decoration:line-through;color:#9ca3af}
+.settled .tc-amount{color:#9ca3af}
+
+/* Bottom safe area */
+.safe-bottom{padding-bottom:env(safe-area-inset-bottom,0px)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ HOME ══ -->
+<div class="screen on" id="s-home">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="brand">拼途账单</div>
+      <div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:900;color:#fff;letter-spacing:-.01em">旅行账单总览</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted)">随手记账 · 结算无忧</div>
+      </div>
+    </div>
+    <div class="topbar-r" id="clock"></div>
+  </div>
+  <div class="scroll pad gap safe-bottom">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+      <span class="row-lbl">我的旅行</span>
+      <button class="btn btn-accent btn-sm" onclick="openCreate()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>
+        新建旅行
+      </button>
+    </div>
+    <div id="trip-list" class="gap"></div>
+    <div class="guide">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <span style="width:5px;height:5px;background:var(--accent);display:inline-block;flex-shrink:0"></span>
+        <span style="font-family:var(--mono);font-size:10px;font-weight:900;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">使用说明</span>
+      </div>
+      <p style="font-size:12px;line-height:1.7;color:#9ca3af">随手记账，算账不伤和气。旅程结束时可一键查看最优还款路径，所有分账记录支持多付款人与成员划归。</p>
+    </div>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- ══ DETAIL ══ -->
+<div class="screen" id="s-detail">
+  <div class="subnav">
+    <button class="btn btn-ghost btn-sm" onclick="goHome()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回
+    </button>
+    <div class="code-pill" id="d-code"></div>
+  </div>
+  <div class="scroll pad gap safe-bottom">
+    <div class="ticket">
+      <svg class="wm" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+      <div class="ticket-body">
+        <span class="stat-lbl">当前旅行</span>
+        <div id="d-name" style="font-size:1.05rem;font-weight:800;margin-top:2px;margin-bottom:2px"></div>
+        <div id="d-meta" style="font-size:11px;color:var(--sec)"></div>
+        <div class="stat-grid">
+          <div><span class="stat-lbl">总花销</span><div class="stat-val" id="d-total">¥0.00</div></div>
+          <div><span class="stat-lbl">人均</span><div class="stat-val" id="d-avg">¥0.00</div></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <span class="row-lbl">账单明细</span>
+      <div style="display:flex;gap:7px">
+        <button class="btn btn-accent btn-sm" onclick="openAddExp()">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></svg>
+          记一笔
+        </button>
+        <button class="btn btn-dark btn-sm" onclick="goSettle()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="2"/><path d="M4 6.5l2 2 3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          结算
+        </button>
+      </div>
+    </div>
+    <div id="exp-list" class="gap"></div>
+    <div class="settle-bar" id="settle-bar" style="display:none">
+      <div>
+        <div class="sb-lbl">结算优化就绪</div>
+        <div class="sb-txt" id="sb-txt">最少 N 笔转账</div>
+      </div>
+      <button class="btn btn-accent btn-sm" onclick="goSettle()">
+        查看方案
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 6.5h9M7.5 3l3 3.5-3 3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+<!-- ══ SETTLEMENT ══ -->
+<div class="screen" id="s-settle">
+  <div class="subnav">
+    <button class="btn btn-ghost btn-sm" onclick="goDetail()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      返回
+    </button>
+    <div class="code-pill" id="se-code"></div>
+  </div>
+  <div class="scroll pad gap safe-bottom">
+    <div class="settle-doc">
+      <div class="sd-head">
+        <div>
+          <div class="sd-lbl">结算报告</div>
+          <div class="sd-title">拼途账单 · 结算清单</div>
+        </div>
+        <div class="calc-badge">计算完成</div>
+      </div>
+      <div class="tear"></div>
+      <div class="sd-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;border-bottom:2px dashed var(--border);padding-bottom:14px">
+          <div>
+            <span class="stat-lbl">旅行名称</span>
+            <div style="font-family:var(--mono);font-size:12px;font-weight:800" id="se-trip-name"></div>
+          </div>
+          <div style="text-align:right">
+            <span class="stat-lbl">结算算法</span>
+            <div style="font-family:var(--mono);font-size:11px;font-weight:700">DISPATCH-v1</div>
+          </div>
+        </div>
+        <div class="stat-box">
+          <span style="font-family:var(--mono);font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--sec)">账单汇总</span>
+          <div class="stat-row"><span class="stat-k">旅途消费总额:</span><span class="stat-v" id="se-total"></span></div>
+          <div class="stat-row"><span class="stat-k">平均分摊应付:</span><span class="stat-v" id="se-avg"></span></div>
+          <div class="stat-row"><span class="stat-k">清算人数:</span><span class="stat-v" id="se-members"></span></div>
+        </div>
+        <div>
+          <span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);display:block;margin-bottom:10px">最优还款方案</span>
+          <div id="tx-list"></div>
+        </div>
+        <div class="bc-wrap">
+          <div class="bc-bars" id="bc-bars"></div>
+          <span style="font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">TS-BOARD-REPAY-PATH-OPTIM</span>
+        </div>
+      </div>
+    </div>
+    <div class="bal-table">
+      <div class="bal-head"><div class="bal-head-txt">各成员收支</div></div>
+      <div id="bal-rows"></div>
+    </div>
+    <button class="share-btn" onclick="doShare()">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="12" cy="3" r="1.5" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13" r="1.5" stroke="currentColor" stroke-width="2"/><circle cx="4" cy="8" r="1.5" stroke="currentColor" stroke-width="2"/><path d="M10.5 4L5.5 7M10.5 12L5.5 9" stroke="currentColor" stroke-width="1.5"/></svg>
+      一键分享结算清单
+    </button>
+    <div style="height:10px"></div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ══ CREATE MODAL ══ -->
+<div class="modal-bg" id="m-create" onclick="bgClose(event,'m-create')">
+  <div class="modal">
+    <div class="modal-top">
+      <div>
+        <div class="modal-lbl">新建旅行</div>
+        <div class="modal-title">填写旅行信息</div>
+      </div>
+      <button class="close" onclick="closeM('m-create')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label class="flbl">旅行名称</label>
+        <input class="finput" id="c-name" type="text" placeholder="例如：大理洱海公路旅行..." autocomplete="off">
+      </div>
+      <div>
+        <label class="flbl">成员名单（逗号或空格隔开）</label>
+        <textarea class="finput" id="c-members" rows="3" placeholder="例如：小南 烤鸭 贝贝"></textarea>
+        <span style="font-size:10px;color:var(--muted);display:block;margin-top:5px">「我」将自动列为首位成员</span>
+      </div>
+
+      <div id="c-err" class="err-box" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" onclick="closeM('m-create')">取消</button>
+        <button class="btn btn-accent btn-sm" onclick="createTrip()">确认新建</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ADD EXPENSE MODAL ══ -->
+<div class="modal-bg" id="m-exp" onclick="bgClose(event,'m-exp')">
+  <div class="modal">
+    <div class="modal-top">
+      <div>
+        <div class="modal-lbl">登记花销</div>
+        <div class="modal-title">登记一笔旅途花销</div>
+      </div>
+      <button class="close" onclick="closeM('m-exp')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <label class="flbl">消费描述</label>
+        <input class="finput" id="e-desc" type="text" placeholder="例如：蟹乐道午餐、地铁一日券..." autocomplete="off">
+      </div>
+      <div>
+        <label class="flbl">金额</label>
+        <div class="amt-wrap">
+          <span class="amt-pfx">¥</span>
+          <input class="finput mono-in" id="e-amt" type="number" placeholder="0.00" min="0" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+      <div>
+        <label class="flbl">消费类型</label>
+        <div class="cat-grid" id="cat-grid"></div>
+      </div>
+      <div>
+        <label class="flbl">谁付的钱</label>
+        <div class="payer-wrap" id="payer-grid"></div>
+      </div>
+      <div>
+        <label class="flbl">参与分摊的人（多选）</label>
+        <div class="split-grid" id="split-grid"></div>
+        <div class="per-hint" id="per-hint"></div>
+      </div>
+      <div id="e-err" class="err-box" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost btn-sm" onclick="closeM('m-exp')">取消</button>
+        <button class="btn btn-accent btn-sm" onclick="addExp()">确认记账</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATS=[
+  {k:'food',code:'DIN',lbl:'餐饮',color:'#F59E0B'},
+  {k:'transport',code:'TRN',lbl:'交通',color:'#D2F24A'},
+  {k:'accommodation',code:'HTL',lbl:'住宿',color:'#A8E6CF'},
+  {k:'ticket',code:'TKT',lbl:'门票',color:'#C7CEEA'},
+  {k:'other',code:'OTH',lbl:'其他',color:'#DFE1E1'},
+];
+const MC=['#D2F24A','#A8E6CF','#FFD3A5','#FF9AA2','#B5EAD7','#C7CEEA','#FFDAC1','#E2F0CB'];
+
+let tripId=null,selCat='food',selPayer=null,selSplit=new Set();
+
+// Storage
+const load=()=>JSON.parse(localStorage.getItem('ptt2')||'[]');
+const save=t=>localStorage.setItem('ptt2',JSON.stringify(t));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const tCode=id=>{const trips=load();const i=trips.findIndex(t=>t.id===id);return i>=0?`#${trips.length-i}`:'';};
+const fmt=n=>'¥'+Number(n).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const getTrip=id=>load().find(t=>t.id===id);
+const updTrip=trip=>{const a=load();const i=a.findIndex(t=>t.id===trip.id);if(i>=0){a[i]=trip;save(a);}};
+
+// Clock
+const clock=document.getElementById('clock');
+(function tick(){clock.textContent=new Date().toLocaleTimeString('zh-CN',{hour12:false});setTimeout(tick,1000)})();
+
+// Screens
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));document.getElementById(id).classList.add('on');window.scrollTo(0,0)}
+function goHome(){tripId=null;renderHome();show('s-home')}
+function goDetail(){if(tripId){renderDetail(tripId);show('s-detail')}else goHome()}
+function goSettle(){const t=getTrip(tripId);if(!t)return;renderSettle(t);show('s-settle')}
+
+// Modal
+function openM(id){document.getElementById(id).classList.add('on');document.body.style.overflow='hidden'}
+function closeM(id){document.getElementById(id).classList.remove('on');document.body.style.overflow=''}
+function bgClose(e,id){if(e.target===e.currentTarget)closeM(id)}
+
+// Home
+function renderHome(){
+  const trips=load();
+  const el=document.getElementById('trip-list');
+  if(!trips.length){
+    el.innerHTML=`<div class="empty"><svg width="44" height="44" viewBox="0 0 44 44" fill="none"><rect x="4" y="4" width="36" height="36" rx="2" stroke="#121212" stroke-width="2.5"/><path d="M15 22h14M22 15v14" stroke="#D2F24A" stroke-width="3" stroke-linecap="round"/></svg><div class="empty-t">还没有旅行</div><div class="empty-s">点击「新建旅行」开始第一次出行账单</div></div>`;
+    return;
+  }
+  el.innerHTML=trips.map(t=>tripCard(t)).join('');
+}
+function tripCard(t){
+  const total=(t.expenses||[]).reduce((s,e)=>s+parseFloat(e.amount),0);
+  const code=tCode(t.id);
+  const settled=t.isSettled;
+  const bars=[1,2,1,3,1,2,1,4].map(w=>`<span style="width:${w*2}px;background:${settled?'#9ca3af':'#fff'}"></span>`).join('');
+  const pills=(t.members||[]).slice(0,5).map(m=>`<span class="mpill" style="background:${m.color}">${m.name}</span>`).join('');
+  return `<div class="trip-card${settled?' settled':''}" onclick="openTrip('${t.id}')">
+    <div class="tc-top" style="background:${settled?'#f4f4f5':'var(--ink)'}">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span class="tc-badge" style="background:${settled?'#71717A':'var(--accent)'};color:${settled?'#fff':'var(--ink)'}">${code}</span>
+        ${settled?`<span style="font-family:var(--mono);font-size:9px;font-weight:700;color:#71717A">已结算</span>`
+        :`<span class="tc-status" style="color:var(--accent)"><span class="pulse"></span>进行中</span>`}
+      </div>
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M5.5 3l4 4.5-4 4" stroke="${settled?'#9ca3af':'var(--accent)'}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="tc-body">
+      <div class="tc-name">${t.name}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:2px">总花销</span>
+          <span class="tc-amount" style="color:${settled?'#9ca3af':'var(--ink)'}">${fmt(total)}</span>
+        </div>
+      </div>
+      <div class="tc-foot">
+        <span style="font-family:var(--mono);font-size:9px;text-transform:uppercase;color:var(--muted)">${(t.members||[]).length}人出行</span>
+        ${pills}${(t.members||[]).length>5?`<span class="mpill" style="background:#f4f4f5;color:var(--muted)">+${t.members.length-5}</span>`:''}
+      </div>
+    </div>
+    <div class="tc-bar" style="background:${settled?'#e4e4e7':'var(--ink)'}">
+      <div class="bars">${bars}</div>
+      <span style="font-family:var(--mono);font-size:7px;letter-spacing:.1em;color:${settled?'#9ca3af':'#fff'}">TRIP-SPLIT</span>
+    </div>
+  </div>`;
+}
+
+// Create
+function openCreate(){
+  document.getElementById('c-name').value='';
+  document.getElementById('c-members').value='';
+  document.getElementById('c-err').style.display='none';
+  openM('m-create');
+  setTimeout(()=>document.getElementById('c-name').focus(),300);
+}
+function createTrip(){
+  const name=document.getElementById('c-name').value.trim();
+  if(!name){showErr('c-err','请填写旅行名称');return;}
+  const raw=document.getElementById('c-members').value;
+  const names=raw.split(/[,，\s]+/).map(s=>s.trim()).filter(Boolean);
+  const members=['我',...names].map((n,i)=>({id:uid(),name:n,color:MC[i%MC.length]}));
+  const trip={id:uid(),name,members,expenses:[],isSettled:false,createdAt:Date.now()};
+  const trips=load();trips.unshift(trip);save(trips);
+  closeM('m-create');renderHome();
+}
+
+// Detail
+function openTrip(id){tripId=id;renderDetail(id);show('s-detail')}
+function renderDetail(id){
+  const t=getTrip(id);if(!t)return;
+  const total=(t.expenses||[]).reduce((s,e)=>s+parseFloat(e.amount),0);
+  const avg=t.members.length>0?total/t.members.length:0;
+  document.getElementById('d-code').textContent=tCode(id);
+  document.getElementById('d-name').textContent=t.name;
+  document.getElementById('d-total').textContent=fmt(total);
+  document.getElementById('d-avg').textContent=fmt(avg)+' / 人';
+  const mm=new Map(t.members.map(m=>[m.id,m]));
+  const el=document.getElementById('exp-list');
+  if(!(t.expenses||[]).length){
+    el.innerHTML=`<div class="empty"><div class="empty-t">暂无账单</div><div class="empty-s">点击「记一笔」开始记录花销</div></div>`;
+  } else {
+    el.innerHTML=[...(t.expenses||[])].reverse().map(exp=>{
+      const cat=CATS.find(c=>c.k===exp.category)||CATS[4];
+      const payer=mm.get(exp.payerId);
+      const sms=(exp.splits||[]).map(s=>mm.get(s.memberId)).filter(Boolean);
+      const stags=sms.slice(0,4).map(m=>`<span class="sh-tag">${m.name}</span>`).join('');
+      const extra=sms.length>4?`<span class="sh-tag">+${sms.length-4}</span>`:'';
+      const date=new Date(exp.createdAt).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'}).replace(/\//g,'/');
+      return `<div class="exp-row">
+        <div class="exp-stripe" style="background:${cat.color}"></div>
+        <div class="exp-body">
+          <div class="exp-top">
+            <div>
+              <div class="exp-tags"><span class="cat-tag">${cat.code}</span><span class="exp-date">${date}</span></div>
+              <div class="exp-desc">${exp.description}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div class="exp-amt">${fmt(exp.amount)}</div>
+              <div class="exp-payer">由 <span style="font-weight:800;color:var(--ink)">${payer?.name||'—'}</span> 支付</div>
+            </div>
+          </div>
+          <div class="exp-foot">
+            <div class="share-list"><span class="sh-lbl">SHARE:</span>${stags}${extra}</div>
+            <button class="del-btn" onclick="delExp('${id}','${exp.id}')">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 3h10M5 3V2h4v1M4 3l.6 8h4.8L10 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  const bar=document.getElementById('settle-bar');
+  if((t.expenses||[]).length>0){
+    bar.style.display='flex';
+    document.getElementById('sb-txt').textContent=`结算优化就绪，最少 ${Math.max(t.members.length-1,0)} 笔转账`;
+  } else bar.style.display='none';
+}
+function delExp(tid,eid){
+  const trips=load();const t=trips.find(x=>x.id===tid);
+  if(!t)return;t.expenses=(t.expenses||[]).filter(e=>e.id!==eid);save(trips);renderDetail(tid);
+}
+
+// Add expense
+function openAddExp(){
+  const t=getTrip(tripId);if(!t)return;
+  selCat='food';selPayer=t.members[0]?.id||null;
+  selSplit=new Set(t.members.map(m=>m.id));
+  buildCats();buildPayers(t);buildSplit(t);
+  document.getElementById('e-desc').value='';
+  document.getElementById('e-amt').value='';
+  document.getElementById('e-err').style.display='none';
+  document.getElementById('per-hint').textContent='';
+  openM('m-exp');
+  setTimeout(()=>document.getElementById('e-desc').focus(),300);
+}
+function buildCats(){
+  document.getElementById('cat-grid').innerHTML=CATS.map(c=>
+    `<button class="cat-btn${c.k===selCat?' sel':''}" onclick="pickCat('${c.k}')"><span class="cat-code">${c.code}</span><span class="cat-label">${c.lbl}</span></button>`
+  ).join('');
+}
+function buildPayers(t){
+  document.getElementById('payer-grid').innerHTML=t.members.map(m=>
+    `<button class="payer-btn${m.id===selPayer?' sel':''}" onclick="pickPayer('${m.id}')">${m.name}</button>`
+  ).join('');
+}
+function buildSplit(t){
+  document.getElementById('split-grid').innerHTML=t.members.map(m=>{
+    const s=selSplit.has(m.id);
+    return `<button class="split-btn${s?' sel':''}" onclick="toggleSplit('${m.id}')">
+      <span>${m.name}</span>
+      ${s?`<svg class="split-check" viewBox="0 0 16 16" fill="none"><path d="M3 8l3.5 3.5L13 5" stroke="var(--ink)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
+    </button>`;
+  }).join('');
+  updHint();
+}
+function pickCat(k){selCat=k;buildCats()}
+function pickPayer(id){selPayer=id;const t=getTrip(tripId);if(t)buildPayers(t)}
+function toggleSplit(id){
+  if(selSplit.has(id)){if(selSplit.size>1)selSplit.delete(id);}
+  else selSplit.add(id);
+  const t=getTrip(tripId);if(t)buildSplit(t);
+}
+function updHint(){
+  const amt=parseFloat(document.getElementById('e-amt').value||'0');
+  document.getElementById('per-hint').textContent=amt>0&&selSplit.size>0?`每人均摊：¥${(amt/selSplit.size).toFixed(2)}`:'';
+}
+document.getElementById('e-amt').addEventListener('input',updHint);
+function addExp(){
+  const desc=document.getElementById('e-desc').value.trim();
+  const amt=parseFloat(document.getElementById('e-amt').value||'0');
+  if(!desc){showErr('e-err','请填写消费描述');return;}
+  if(!amt||amt<=0){showErr('e-err','请填写有效金额');return;}
+  if(!selPayer){showErr('e-err','请选择付款人');return;}
+  const per=(amt/selSplit.size).toFixed(2);
+  const splits=Array.from(selSplit).map(mid=>({memberId:mid,share:per}));
+  const exp={id:uid(),tripId,payerId:selPayer,amount:amt.toFixed(2),category:selCat,description:desc,splits,createdAt:Date.now()};
+  const trips=load();const t=trips.find(x=>x.id===tripId);
+  if(!t)return;t.expenses=t.expenses||[];t.expenses.push(exp);save(trips);
+  closeM('m-exp');renderDetail(tripId);
+}
+
+// Settlement
+function calcSettle(t){
+  const paid={},owes={};
+  t.members.forEach(m=>{paid[m.id]=0;owes[m.id]=0;});
+  (t.expenses||[]).forEach(exp=>{
+    paid[exp.payerId]=(paid[exp.payerId]||0)+parseFloat(exp.amount);
+    (exp.splits||[]).forEach(s=>{owes[s.memberId]=(owes[s.memberId]||0)+parseFloat(s.share);});
+  });
+  const bals=t.members.map(m=>({memberId:m.id,paid:paid[m.id]||0,owes:owes[m.id]||0,balance:(paid[m.id]||0)-(owes[m.id]||0)}));
+  const pos=bals.filter(b=>b.balance>0.005).map(b=>({...b}));
+  const neg=bals.filter(b=>b.balance<-0.005).map(b=>({...b}));
+  const txs=[];let pi=0,ni=0;
+  while(pi<pos.length&&ni<neg.length){
+    const p=pos[pi],n=neg[ni];
+    const a=Math.min(p.balance,-n.balance);
+    if(a>0.005)txs.push({from:n.memberId,to:p.memberId,amount:a.toFixed(2)});
+    p.balance-=a;n.balance+=a;
+    if(Math.abs(p.balance)<0.005)pi++;
+    if(Math.abs(n.balance)<0.005)ni++;
+  }
+  const total=(t.expenses||[]).reduce((s,e)=>s+parseFloat(e.amount),0);
+  return{bals,txs,total};
+}
+function renderSettle(t){
+  const{bals,txs,total}=calcSettle(t);
+  const mm=new Map(t.members.map(m=>[m.id,m]));
+  const avg=t.members.length>0?total/t.members.length:0;
+  document.getElementById('se-code').textContent=tCode(t.id);
+  document.getElementById('se-trip-name').textContent=t.name;
+  document.getElementById('se-total').textContent=fmt(total);
+  document.getElementById('se-avg').textContent=fmt(avg)+' / 人';
+  document.getElementById('se-members').textContent=t.members.length+' PASSENGERS';
+  const txEl=document.getElementById('tx-list');
+  if(!txs.length){
+    txEl.innerHTML=`<div class="all-clear"><div class="ac-txt">ALL CLEAR · 所有人账目平衡，无需转账！</div></div>`;
+  } else {
+    txEl.innerHTML=txs.map((tx,i)=>{
+      const fr=mm.get(tx.from),to=mm.get(tx.to);
+      return `<div class="tx-row">
+        <div class="tx-idx">${i+1}</div>
+        <div style="display:flex;align-items:center;padding-left:12px">
+          <span class="tx-from">${fr?.name||'?'}</span>
+          <div class="tx-arr"><span class="tx-arr-lbl">转账给</span>
+            <svg width="16" height="10" viewBox="0 0 16 10" fill="none"><path d="M1 5h14M9.5 1l5 4-5 4" stroke="var(--ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <span class="tx-to">${to?.name||'?'}</span>
+        </div>
+        <span class="tx-amt">${fmt(tx.amount)}</span>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('bc-bars').innerHTML=[4,2,6,2,4,2,8,4,2,6,2,4,6].map(w=>`<span style="width:${w}px"></span>`).join('');
+  document.getElementById('bal-rows').innerHTML=bals.map(b=>{
+    const m=mm.get(b.memberId);
+    return `<div class="bal-row">
+      <div style="display:flex;align-items:center">
+        <div class="bal-av" style="background:${m?.color||'#D2F24A'}">${(m?.name||'?').slice(0,1)}</div>
+        <span class="bal-name">${m?.name||'?'}</span>
+      </div>
+      <div>
+        <div class="bal-amt" style="color:${b.balance>=0?'#059669':'#DC2626'}">${b.balance>=0?'+':''}${fmt(b.balance)}</div>
+        <div class="bal-sub">垫付 ${fmt(b.paid)} / 应付 ${fmt(b.owes)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function doShare(){
+  const t=getTrip(tripId);if(!t)return;
+  const{txs,total}=calcSettle(t);
+  const mm=new Map(t.members.map(m=>[m.id,m]));
+  const avg=t.members.length>0?(total/t.members.length).toFixed(2):'0.00';
+  const lines=txs.map((tx,i)=>`${i+1}. ${mm.get(tx.from)?.name||'?'} → ${mm.get(tx.to)?.name||'?'} ¥${tx.amount}`).join('\n');
+  const text=`【拼途账单结算单】\n旅程：${t.name}\n总额：¥${total.toFixed(2)}（${t.members.length}人，人均 ¥${avg}）\n\n最优还款路径（${txs.length}笔）：\n${lines||'大家都平了，不用转账！'}\n\n——由 拼途账单 生成`;
+  if(navigator.share){navigator.share({text});}
+  else{navigator.clipboard.writeText(text).then(()=>alert('已复制到剪贴板！')).catch(()=>{const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('已复制！');});}
+}
+
+function showErr(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display='block';}
+
+renderHome();
+
+// ── PWA: inject manifest inline ──
+(function(){
+  const icon = "data:image/svg+xml," + encodeURIComponent('<svg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 512 512\'><rect width=\'512\' height=\'512\' fill=\'%23121212\'/><rect x=\'40\' y=\'40\' width=\'200\' height=\'40\' fill=\'%23D2F24A\'/><text x=\'140\' y=\'70\' font-family=\'monospace\' font-size=\'26\' font-weight=\'900\' fill=\'%23121212\' text-anchor=\'middle\'>拼途账单</text><text x=\'256\' y=\'310\' font-family=\'monospace\' font-size=\'180\' font-weight=\'900\' fill=\'%23D2F24A\' text-anchor=\'middle\'>¥</text></svg>');
+  const manifest = {name:'拼途账单',short_name:'拼途账单',description:'旅行分账，随手记账',start_url:'./',display:'standalone',background_color:'#121212',theme_color:'#121212',orientation:'portrait',icons:[{src:icon,sizes:'192x192',type:'image/svg+xml',purpose:'any maskable'},{src:icon,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+  const blob = new Blob([JSON.stringify(manifest)],{type:'application/json'});
+  document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {const c=document.createElement('canvas');c.width=c.height=180;c.getContext('2d').drawImage(img,0,0,180,180);const l=document.createElement('link');l.rel='apple-touch-icon';l.href=c.toDataURL('image/png');document.head.appendChild(l);};
+  img.src = icon;
+})();
+
+// ── PWA: service worker ──
+if('serviceWorker' in navigator){
+  const sw=`const C='ptt-v1';self.addEventListener('install',e=>{self.skipWaiting();});self.addEventListener('activate',e=>{self.clients.claim();});self.addEventListener('fetch',e=>{e.respondWith(caches.open(C).then(c=>c.match(e.request).then(r=>r||(fetch(e.request).then(res=>{c.put(e.request,res.clone());return res;})))));});`;
+  const url=URL.createObjectURL(new Blob([sw],{type:'text/javascript'}));
+  navigator.serviceWorker.register(url).catch(()=>{});
+}
+</script>
+</body>
+</html>
